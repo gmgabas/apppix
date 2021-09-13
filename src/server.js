@@ -26,9 +26,9 @@ if (process.env.NODE_ENV !== 'production') {
   app.set('view engine', 'ejs')
   app.set('views', 'src/views')
 
-  app.get('/', (req, res) => {
+  app.get('/', async (req, res) => {
 
-    axios({
+    const authReponse = await axios({
       method: 'POST',
       url: `${process.env.GN_ENDPOINT}/oauth/token`,
       headers: {
@@ -39,31 +39,34 @@ if (process.env.NODE_ENV !== 'production') {
       data: {
         grant_type: 'client_credentials'
       }
-    }).then((response) => {
-      const acessToken = response.data?.access_token
+    })
+    
+    const acessToken = authReponse.data?.access_token
   
-      const reqGN = axios.create({
-        baseURL: process.env.GN_ENDPOINT,
-        httpsAgent: agent,
-        headers:{
-          Authorization: `Bearer ${acessToken}`,
-          'Content-type': 'application/json'
-        }
-      })
+    const reqGN = axios.create({
+       baseURL: process.env.GN_ENDPOINT,
+       httpsAgent: agent,
+       headers:{
+         Authorization: `Bearer ${acessToken}`,
+         'Content-type': 'application/json'
+       }
+     })
   
-      const dataCob = {
-        calendario: {
-          expiracao: 3600
-        },
-        valor: {
-          original: '10.00'
-        },
-        chave: '5281d8850ae8dd100a64d5e7f45c07ff',
-        solicitacaoPagador: 'Cobrança dos serviços prestados.'
-      }
+     const dataCob = {
+       calendario: {
+         expiracao: 3600
+       },
+       valor: {
+         original: '10.00'
+       },
+       chave: '5281d8850ae8dd100a64d5e7f45c07ff',
+       solicitacaoPagador: 'Cobrança dos serviços prestados.'
+     }
   
-      reqGN.post('/v2/cob', dataCob).then((response) => res.send(response.data))
-    })    
+    const cobResponse = await reqGN.post('/v2/cob', dataCob)
+    const qrcodeResponse = await reqGN.get(`/v2/loc/${cobResponse.data.loc.id}/qrcode`)
+    //res.send(qrcodeResponse.data)
+    res.render('qrcode', { qrcodeImage: qrcodeResponse.data.imagemQrcode})
   })
 
   app.listen(8000, () => {
